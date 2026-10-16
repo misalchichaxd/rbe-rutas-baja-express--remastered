@@ -1,20 +1,47 @@
-# --- Python/Django Cache ---
-**/__pycache__/
+# Archivos comprimidos
+*.zip
+*.rar
+*.7z
+*.tar
+*.tar.gz
+*.tgz
+
+# Secretos y variables de entorno
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+
+# Python
+__pycache__/
 *.py[cod]
-*.class
-
-# --- Entornos Virtuales ---
+*.pyo
+*.egg-info/
 venv/
-django/venv/
-env/
 .venv/
+env/
 
-# --- VS Code y Sistema ---
+# Django
+db.sqlite3
+media/
+staticfiles/
+
+# Node.js
+node_modules/
+dist/
+build/
+.next/
+.nuxt/
+
+# Editores
 .vscode/
+.idea/
+
+# Sistema operativo
 .DS_Store
 Thumbs.db
-desktop.ini
 
-# --- Flutter (opcional por si las moscas) ---
-movil/.dart_tool/
-movil/build/
+# Logs
+*.log

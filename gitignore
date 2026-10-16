@@ -1,0 +1,47 @@
+# Archivos comprimidos
+*.zip
+*.rar
+*.7z
+*.tar
+*.tar.gz
+*.tgz
+
+# Secretos y variables de entorno
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+venv/
+.venv/
+env/
+
+# Django
+db.sqlite3
+media/
+staticfiles/
+
+# Node.js
+node_modules/
+dist/
+build/
+.next/
+.nuxt/
+
+# Editores
+.vscode/
+.idea/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

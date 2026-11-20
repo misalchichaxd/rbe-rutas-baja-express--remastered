@@ -2,12 +2,18 @@ from django.urls import path, include
 from django.views.generic import RedirectView
 from django.conf import settings
 from django.conf.urls.static import static
-from . import views
+from . import views, elipse_bridge
 
 urlpatterns = [
 
-    path('elipse/',       views.elipse_view, name='elipse'),
-    path('elipse/chat/',  views.elipse_chat, name='elipse_chat'),
+    # Elipse (conectado a ELIPSE Engine)
+    path('elipse/',                    elipse_bridge.elipse_page,     name='elipse'),
+    path('elipse/ask/',                elipse_bridge.elipse_ask,      name='elipse_ask'),
+    path('elipse/ask/<str:task_id>/',  elipse_bridge.elipse_poll,     name='elipse_poll'),
+    path('elipse/nuevo/',              elipse_bridge.elipse_nuevo,    name='elipse_nuevo'),
+    path('elipse/estado/',             elipse_bridge.elipse_estado,   name='elipse_estado'),
+    path('elipse/callback/<str:tool>', elipse_bridge.elipse_callback, name='elipse_callback'),  # SIN barra final
+
     path('ok/', views.ok_view, name='ok'),
     path('', views.index_view, name='index'),
     # Auth
@@ -52,8 +58,12 @@ urlpatterns = [
     path('api/viaje/pasajeros/<int:viaje_id>/', views.viaje_pasajeros, name='viaje_pasajeros'),
     path('api/viaje/ocupacion/<int:viaje_id>/', views.viaje_ocupacion, name='viaje_ocupacion'),
     path('api/boleto/<int:pago_id>/adjuntar_pdf/', views.api_enviar_boleto_correo, name='api_adjuntar_pdf'),
+   
+      path('elipse/voz/<str:task_id>/',  elipse_bridge.elipse_voz,      name='elipse_voz'),
     # API móvil (taquilla) — al final para no interceptar rutas del panel
     path('api/', include('taquilla.api_urls')),
+
+
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

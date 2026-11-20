@@ -264,20 +264,17 @@
 
     <a href="/admin-panel/" class="btn-back">&#8592; Volver al panel</a>
 
-    <!-- Selector de modelo IA -->
+    <!-- Motor: ELIPSE Engine (el modelo lo decide el Engine, ya no se elige aqui) -->
     <div class="model-section">
-      <div class="model-label">Modelo de IA</div>
+      <div class="model-label">Motor de IA</div>
       <div class="model-opts" id="modelOpts">
-        {% for key, m in modelos.items %}
-        <label class="model-opt {% if key == modelo_default %}active{% endif %}" data-key="{{ key }}">
-          <input type="radio" name="modelo" value="{{ key }}" {% if key == modelo_default %}checked{% endif %}>
+        <div class="model-opt active" style="cursor:default">
           <div class="model-dot"></div>
           <div class="model-info">
-            <div class="model-name">{{ m.label }}</div>
-            <div class="model-desc">{{ m.desc }}</div>
+            <div class="model-name">ELIPSE Engine</div>
+            <div class="model-desc">Consulta solo lectura</div>
           </div>
-        </label>
-        {% endfor %}
+        </div>
       </div>
     </div>
 
@@ -308,6 +305,7 @@
         <div class="model-badge" id="headerBadge">Elipse</div>
       </div>
       <div class="h-actions">
+        <button class="btn-icon" id="vozBtn" onclick="alternarVoz()" title="Voz de Elipse (activada)">&#128266;</button>
         <button class="btn-icon" onclick="limpiar()" title="Limpiar chat">&#128465;</button>
       </div>
     </div>
@@ -337,17 +335,6 @@ let busy = false;
 let modeloActual = "{{ modelo_default }}";
 let historial = [];
 
-// ── Selector de modelo ──────────────────────────
-document.querySelectorAll('.model-opt').forEach(function(el) {
-  el.addEventListener('click', function() {
-    document.querySelectorAll('.model-opt').forEach(function(o){ o.classList.remove('active'); });
-    el.classList.add('active');
-    el.querySelector('input').checked = true;
-    modeloActual = el.dataset.key;
-    document.getElementById('headerBadge').textContent = el.querySelector('.model-name').textContent;
-  });
-});
-
 // ── Input helpers ───────────────────────────────
 function resize(el) {
   el.style.height = 'auto';
@@ -361,8 +348,20 @@ function q(txt) {
   resize(document.getElementById('chatInput'));
   enviar();
 }
+var vozActiva = true;
+function alternarVoz() {
+  vozActiva = !vozActiva;
+  var b = document.getElementById('vozBtn');
+  b.innerHTML = vozActiva ? '&#128266;' : '&#128263;';
+  b.title = 'Voz de Elipse (' + (vozActiva ? 'activada' : 'silenciada') + ')';
+}
+function hablar(taskId) {
+  try { new Audio('/elipse/voz/' + encodeURIComponent(taskId) + '/').play().catch(function(e){ console.warn('Voz de Elipse no se pudo reproducir:', e); }); } catch (e) { console.warn('Voz de Elipse:', e); }
+}
+
 function limpiar() {
   historial = [];
+  fetch('/elipse/nuevo/', { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': CSRF } }).catch(function(){});
   document.getElementById('messages').innerHTML =
     '<div class="welcome" id="welcome">' +
     '<div class="w-orb">&#9889;</div>' +
@@ -421,12 +420,27 @@ function recordar(role, content) {
 }
 
 // ── Enviar ──────────────────────────────────────
+// El motor (ELIPSE Engine) trabaja de forma asincrona: se inicia la consulta y se sondea el resultado.
+function pausa(ms) { return new Promise(function(r) { setTimeout(r, ms); }); }
+
+async function esperarRespuesta(taskId) {
+  var inicio = Date.now();
+  while (Date.now() - inicio < 180000) {
+    await pausa(1000);
+    var r = await fetch('/elipse/ask/' + encodeURIComponent(taskId) + '/', { credentials: 'same-origin' });
+    if (r.status === 401) { window.location = '/login/'; return { error: 'Tu sesion expiro.' }; }
+    var d = await r.json();
+    if (d.estado === 'en_progreso') continue;
+    return d.estado === 'listo' ? { html: d.html, voz: d.voz } : { error: d.error || 'Elipse no pudo responder.' };
+  }
+  return { error: 'Elipse tardo demasiado en responder. Intenta de nuevo.' };
+}
+
 async function enviar() {
   if (busy) return;
   var input = document.getElementById('chatInput');
   var txt = input.value.trim();
   if (!txt) return;
-  var contexto = historial.slice(-6);
   input.value = ''; resize(input);
   addMsg('user', esc(txt));
   showTyping();
@@ -434,19 +448,21 @@ async function enviar() {
   document.getElementById('sendBtn').disabled = true;
 
   try {
-    var res = await fetch('/elipse/chat/', {
+    var res = await fetch('/elipse/ask/', {
       method: 'POST',
+      credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
-      body: JSON.stringify({ pregunta: txt, modelo: modeloActual, historial: contexto })
+      body: JSON.stringify({ pregunta: txt, voz: vozActiva })
     });
+    if (res.status === 401) { window.location = '/login/'; return; }
     var data = await res.json();
+    var out = data.error ? { error: data.error } : await esperarRespuesta(data.task_id);
     hideTyping();
-    if (data.error) {
-      addMsg('ai', '<span class="msg-error">&#9888; ' + esc(data.error) + '</span>');
+    if (out.error) {
+      addMsg('ai', '<span class="msg-error">&#9888; ' + esc(out.error) + '</span>');
     } else {
-      addMsg('ai', data.html);
-      recordar('user', txt);
-      recordar('assistant', plain(data.html));
+      addMsg('ai', out.html);
+      if (out.voz) hablar(data.task_id);
     }
   } catch(err) {
     hideTyping();
